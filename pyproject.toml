@@ -79,6 +79,10 @@ dev = [
     "fastapi>=0.115.12",
     "nest-asyncio>=1.6.0",
     "pdoc3>=0.11.5",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "pytest-mock>=3.14.0",
+    "pytest-asyncio>=0.26.0",
     "python-dotenv>=1.1.0",
     "ruff>=0.8.2",
 ]
@@ -96,3 +100,12 @@ ignore = ["UP006", "UP007", "UP035"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/blaxel"]
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = "test_*.py"
+pythonpath = [
+    ".",
+    "src"
+]
+addopts = "-v --cov=src/blaxel --cov-report=term-missing --log-cli=true"

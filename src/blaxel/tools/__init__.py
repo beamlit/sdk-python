@@ -34,7 +34,7 @@ class PersistentWebSocket:
         logger.debug(f"Tool {tool_name} returned {call_tool_result}")
         self._reset_timer()
         return call_tool_result
-    
+
     async def list_tools(self):
         await self._initialize()
         self._remove_timer()
@@ -63,8 +63,7 @@ class PersistentWebSocket:
         await asyncio.sleep(self.timeout)
         await self._close()
         self.session = None
-        
-    
+
     async def _close(self):
         logger.debug(f"Closing websocket client {self.url}")
         if self.session:
