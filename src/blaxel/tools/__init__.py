@@ -1,5 +1,6 @@
 import asyncio
 import json
+import traceback
 from contextlib import AsyncExitStack
 from logging import getLogger
 from typing import Any, cast
@@ -14,7 +15,6 @@ from ..common.settings import settings
 from ..instrumentation.span import SpanManager
 from ..mcp.client import websocket_client
 from .types import Tool
-import traceback
 
 logger = getLogger(__name__)
 
@@ -64,13 +64,13 @@ class PersistentWebSocket:
         await self._close()
         self.session = None
 
+
     async def _close(self):
         logger.debug(f"Closing websocket client {self.url}")
         if self.session:
             self.session = None
             await self.exit_stack.aclose()
             logger.debug("WebSocket connection closed due to inactivity.")
-
 
 def convert_mcp_tool_to_blaxel_tool(
     websocket_client: PersistentWebSocket,
@@ -128,13 +128,10 @@ def convert_mcp_tool_to_blaxel_tool(
         response_format="content_and_artifact",
     )
 
-
+tools_by_server: dict[str, list[Tool]] = {}
 class BlTools:
-    tools_by_server: dict[str, list[Tool]] = {}
-
     def __init__(self, functions: list[str]):
         self.exit_stack = AsyncExitStack()
-        self.sessions: dict[str, ClientSession] = {}
         self.functions = functions
 
     def _external_url(self, name: str) -> str:
@@ -156,8 +153,9 @@ class BlTools:
     def get_tools(self) -> list[Tool]:
         """Get a list of all tools from all connected servers."""
         all_tools: list[Tool] = []
-        for server_tools in BlTools.tools_by_server.values():
-            all_tools.extend(server_tools)
+        for server_name, server_tools in tools_by_server.items():
+            if server_name in self.functions:
+                all_tools.extend(server_tools)
         return all_tools
 
     async def to_langchain(self):
@@ -184,6 +182,12 @@ class BlTools:
         await self.intialize()
         return get_openai_tools(self.get_tools())
 
+    async def to_pydantic(self):
+        from .pydantic import get_pydantic_tools
+
+        await self.intialize()
+        return get_pydantic_tools(self.get_tools())
+
     async def connect_to_server_via_websocket(self, name: str):
         # Create and store the connection
         try:
@@ -205,9 +209,9 @@ class BlTools:
             url: The URL to connect to
         """
         logger.debug(f"Initializing session and loading tools from {url}")
-        if not BlTools.tools_by_server.get(name):
-            BlTools.tools_by_server[name] = await self.load_mcp_tools(name, url)
-        logger.debug(f"Loaded {len(BlTools.tools_by_server[name])} tools from {url}")
+        if not tools_by_server.get(name):
+            tools_by_server[name] = await self.load_mcp_tools(name, url)
+        logger.debug(f"Loaded {len(tools_by_server[name])} tools from {url}")
 
     async def load_mcp_tools(self, name: str, url: str) -> list[Tool]:
         """Load all available MCP tools and convert them to Blaxel tools."""
